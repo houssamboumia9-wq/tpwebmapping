@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Carte interactive du Maroc</title>
+
+  <!-- Import Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="populationregion.geojson"></script>
+
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background-color: #f8f9fa;
+    }
+
+    #map {
+      height: 100%;
+      width: 100%;
+      border-top: 2px solid #3A0CA3;
+    }
+
+    .legend {
+      line-height: 18px;
+      color: #333;
+      background: rgba(255, 255, 255, 0.85);
+      padding: 8px;
+      border-radius: 5px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .legend i {
+      width: 18px;
+      height: 18px;
+      float: left;
+      margin-right: 8px;
+      opacity: 0.9;
+    }
+
+    .info {
+      padding: 6px 8px;
+      font: 14px/16px Arial, Helvetica, sans-serif;
+      background: rgba(255,255,255,0.85);
+      box-shadow: 0 0 15px rgba(0,0,0,0.2);
+      border-radius: 5px;
+    }
+
+    .info h4 {
+      margin: 0 0 5px;
+      color: #3A0CA3;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="map"></div>
+
+  <script>
+    // 🗺️ Initialisation de la carte centrée sur le Maroc
+    const map = L.map('map').setView([31.5, -7.5], 6);
+
+    // Fond de carte satellite (Esri)
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: '© Esri, Maxar, Earthstar Geographics'
+    }).addTo(map);
+
+    // 🎨 Nouvelle palette "Carto vibrant"
+    function getColor(d) {
+      return d <= 1696908 ? '#7209B7' :  // violet
+             d <= 3179697 ? '#3A0CA3' :  // bleu profond
+             d <= 4662487 ? '#00B4D8' :  // cyan
+             d <= 6145276 ? '#F8961E' :  // orange
+                            '#DC2F02';   // rouge vif
+    }
+
+    // Style appliqué à chaque région
+    function style(feature) {
+      return {
+        fillColor: getColor(feature.properties[" Marocains"]),
+        weight: 1,
+        opacity: 1,
+        color: 'white',
+        dashArray: '3',
+        fillOpacity: 0.8
+      };
+    }
+
+    // 🔍 Info box (affiche infos au survol)
+    const info = L.control();
+    info.onAdd = function () {
+      this._div = L.DomUtil.create('div', 'info');
+      this.update();
+      return this._div;
+    };
+    info.update = function (props) {
+      this._div.innerHTML = '<h4>Population par région</h4>' + (props ?
+        `<b>${props.nom_region}</b><br/>${props[" Marocains"].toLocaleString('fr-FR')} habitants`
+        : 'Survolez une région');
+    };
+    info.addTo(map);
+
+    // --- Interaction au survol ---
+    function highlightFeature(e) {
+      const layer = e.target;
+      layer.setStyle({
+        weight: 3,
+        color: '#000',
+        dashArray: '',
+        fillOpacity: 0.9
+      });
+      layer.bringToFront();
+      info.update(layer.feature.properties);
+    }
+
+    function resetHighlight(e) {
+      geojson.resetStyle(e.target);
+      info.update();
+    }
+
+    function onEachFeature(feature, layer) {
+      layer.on({
+        mouseover: highlightFeature,
+        mouseout: resetHighlight
+      });
+    }
+
+    // --- Charger le GeoJSON ---
+    const geojson = L.geoJSON(maroc, {
+      style: style,
+      onEachFeature: onEachFeature
+    }).addTo(map);
+
+    // --- Légende cohérente avec la palette ---
+    const legend = L.control({ position: 'bottomright' });
+    legend.onAdd = function (map) {
+      const div = L.DomUtil.create('div', 'legend');
+      const grades = [
+        [214119, 1696908, '#7209B7'],
+        [1696908, 3179697, '#3A0CA3'],
+        [3179697, 4662487, '#00B4D8'],
+        [4662487, 6145276, '#F8961E'],
+        [6145276, 7628065, '#DC2F02']
+      ];
+      div.innerHTML = '<b>Population (Marocains)</b><br>';
+      grades.forEach(([min, max, color]) => {
+        div.innerHTML +=
+          `<i style="background:${color}"></i> ${min.toLocaleString()} – ${max.toLocaleString()}<br>`;
+      });
+      return div;
+    };
+    legend.addTo(map);
+
+    // Ajuster la vue pour bien voir tout le Maroc
+    map.fitBounds([
+      [27.5, -13.5],
+      [36.5, -0.5]
+    ]);
+  </script>
+</body>
+</html>
